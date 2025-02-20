@@ -1,0 +1,44 @@
+version 1.2.2
+08-Apr-2014 by Kun SUN (sunkun (at) cuhk.edu.hk)
+    * Added files/features:
+        None
+    * Modified files/features:
+        1. Fixed a bug in "prepare_consv.pl" that will load other segments besides "exon";
+        2. Some small changes in the main program "iSeeRNA" to make the output better.
+    * Deleted files/features:
+        None
+
+version 1.2.1
+04-Oct-2013 by Kun SUN (sunkun (at) cuhk.edu.hk)
+    * Added files/features:
+        1. Added binary release package for x86 (32 bit) Linux/Unix platform.
+    * Modified files/features:
+        1. Optimized "auto_download_data.sh" for "xz" compressed files for its higher compression ratio
+           as well as higher decompression speed.
+        2. Fixed the error that the src package does not contain the file "bin/svmresult.pl".
+        3. Fixed the bug that the "example.gtf" contains 10 transcripts while we claim 8.
+        4. The "Makefile" and "auto_Wig2Array.sh" are revised.
+    * Deleted files/features:
+        None
+
+Version 1.2
+27-May-2013 by Kun SUN (sunkun (at) cuhk.edu.hk)
+    * Added files/features:
+        None
+    * Modified files/features:
+        1. Fixed a bug in the utility program "auto_Wig2Array.sh".
+    * Deleted files/features:
+        None
+
+Version 1.1
+10-April-2013 by Kun SUN (sunkun (at) cuhk.edu.hk)
+    * Added files/features:
+        1. "conf/mm10.conf", "model/mm10.model", "model/mm10.scale.param": files for supporting mm10.
+        This model is trained using the same method as hg19 and mm9.
+        Sensitivity=96.51%, Specificity=93.02%
+    * Modified files/features:
+        1. "auto_download_data.sh": modified to support mm10 and download archived files instead of single files.
+        2. Some other files are changed slightly mainly some words.
+    * Deleted files/features:
+        1. "util/fa2gff": This utility is not mature thus abandoned
+

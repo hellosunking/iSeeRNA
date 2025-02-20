@@ -1,0 +1,165 @@
+#!/usr/bin/perl
+
+#
+# Author : Ahfyth
+#
+
+use strict;
+use warnings;
+
+use Getopt::Long;
+
+my $conffile;
+my $gfffile;
+my $outdir;
+my $bedfile;
+
+GetOptions
+(
+ "conf|c:s" => \$conffile,
+ "in|i:s" => \$gfffile,
+ "out|o:s" => \$outdir,
+ "bed:s" => \$bedfile,
+);
+
+my $version = '1.2.2, Apr 2014';
+
+unless( $conffile && $gfffile && $outdir )
+{
+	print STDERR "\niSeeRNA: a program to distinguish lincRNAs from mRNAs";
+	print STDERR "\nVersion $version\n";
+	print STDERR "\nUsage: $0 -c configure_file [--bed] -i input_annotation_file -o output_dir\n";
+	print STDERR "\nThis program is designed to prepare data and Makefile for iSeeRNA.";
+	print STDERR "\nSee README file for more information.\n\n";
+	exit 1;
+}
+
+my $pwd = `pwd`;
+chomp( $pwd );
+my $root;
+if( $0 =~ /^\// ){$root = $0;}
+else{$root = "$pwd/$0";}
+$root =~ s/\/[^\/]*$//;
+
+my $prg = "$root/bin";
+
+$gfffile = "$pwd/$gfffile" unless( $gfffile =~ /^\// );
+my $gffbase = $gfffile;
+$gffbase =~ s/^.*\///;
+if( defined $bedfile )
+{
+	print "\n\nINFO: bed file loaded!\n\n";
+	$gffbase =~ s/\.bed$//;
+}
+else
+{
+	$gffbase =~ s/\.g[tf]f$//;
+}
+
+open IN, "$conffile" or die( "$!" );
+my %conf;
+while( <IN> )
+{
+	chomp;
+	$_ =~ s/^\s+//;
+	$_ =~ s/\s+$//;
+
+	next unless $_;
+	next if $_=~ /^#/;
+
+	my @tmp = split /[\s=]+/;
+	$tmp[1] = "$root/$tmp[1]" unless( $tmp[1] =~ /^\// );
+	$conf{ uc($tmp[0]) } = $tmp[1];
+}
+close IN;
+
+my $GENOME		= $conf{ 'GENOME'	};
+my $CONSV		= $conf{ 'CONSV'	};
+my $svm_model	= $conf{ 'SVMMODEL' };
+my $svm_param	= $conf{ 'SVMPARAM' };
+my $THREAD		= $conf{ 'THREAD' } || 1;
+$THREAD			=~ s/^.*\///;
+
+# check configuration file parameters
+unless( $GENOME && $CONSV && $svm_model && $svm_param )
+{
+	print STDERR "\nError: configure file not complete !\n\n";
+	exit 2;
+}
+
+unless( -e $GENOME )
+{
+	print STDERR "\nError: GENOME file '$GENOME' does not EXIST!\n";
+	exit 10;
+}
+unless( -e $CONSV && -d $CONSV )
+{
+	print STDERR "\nError: CONSV directory '$CONSV' does not EXIST or is a file!\n";
+	exit 10;
+}
+unless( -e "$svm_model" )
+{
+	print STDERR "\nError: SVMMODEL file '$svm_model' does not EXIST!\n";
+	exit 10;
+}
+unless( -e "$svm_param" )
+{
+	print STDERR "\nError: SVMPARAM file '$svm_param' does not EXIST!\n";
+	exit 10;
+}
+
+if( -e $outdir )
+{
+    print STDERR "\n\nWARNING: Directory '$outdir' EXISTS !\n\n";
+}
+else
+{
+    system "mkdir -p $outdir";
+}
+
+system "mkdir -p $outdir/consv";
+
+# write the configure file as a backup
+open CONF, ">$outdir/iSeeRNA.conf" or die( "$!" );
+print CONF "GFFFILE\t$gfffile\n";
+print CONF "GENOME\t$GENOME\n";
+print CONF "CONSV\t$CONSV\n";
+print CONF "SVMMODEL\t$svm_model\n";
+print CONF "SVMPARAM\t$svm_param\n";
+close CONF;
+
+# write Makefile
+open MK, ">$outdir/Makefile" or die( "$!" );
+select MK;
+
+print "$gffbase.result: $gffbase.svm $gffbase.predict\n\tperl $prg/svmresult.pl $gffbase.svm $gffbase.predict > $gffbase.result\n\n";
+print "$gffbase.predict: $gffbase.scaled $svm_model\n\t$prg/svm-predict -b 1 $gffbase.scaled $svm_model $gffbase.predict\n";
+print "$gffbase.scaled: $gffbase.svm $svm_param\n\t$prg/svm-scale -r $svm_param $gffbase.svm > $gffbase.scaled\n\n";
+
+print "$gffbase.svm: $gffbase.list $gffbase.orf $gffbase.feature all_$gffbase.consv\n",
+	  "\tperl $prg/merge.pl $gffbase.list all_$gffbase.consv $gffbase.orf $gffbase.feature > $gffbase.svm\n\n";
+
+if( defined $bedfile )
+{
+	print "$gffbase.gtf: $gfffile\n\tperl $prg/bed2gff.pl $gfffile > $gffbase.gtf\n";
+}
+else
+{
+	print "$gffbase.gtf: $gfffile\n\t$prg/gffread -o /dev/stdout $gfffile | perl -ne 'print unless /^#/' | perl -ne '\$\$_=\"chr\$\$_\" unless /^chr/; \$\$_=~s/Parent=/transcript_id /; print ' > $gffbase.gtf\n\n";
+}
+print "$gffbase.fa: $gffbase.gtf\n\t$prg/gffread -g $GENOME -w $gffbase.fa $gffbase.gtf\n\n";
+print "$gffbase.list: $gffbase.fa\n\tperl $prg/fa2list.pl $gffbase.fa $gffbase.list\n\n";
+print "$gffbase.feature: $gffbase.fa\n\tperl $prg/fa2feature.pl $gffbase.fa $gffbase.feature\n\n";
+print "$gffbase.orf: $gffbase.fa\n\t$prg/txCdsPredict -anyStart $gffbase.fa $gffbase.orf\n\n";
+
+# conservation
+print "consv/Makefile: $gffbase.gtf\n\tcd consv && perl $prg/prepare_consv.pl ../$gffbase.gtf $CONSV $prg/calcConsv all_$gffbase.consv > Makefile && cd ..\n\n";
+print "all_$gffbase.consv: consv/Makefile\n\tcd consv && make -j $THREAD && cd ..\n\n";
+
+print "clean:\n\trm -rf consv/* *$gffbase.*\n";
+
+close MK;
+
+print STDERR "\nPrepare makefile completed.\nPlease Change directory to $outdir and run make.\nThe final result is in file $gffbase.result.\n\n";
+
+
