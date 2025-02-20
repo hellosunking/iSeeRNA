@@ -1,6 +1,8 @@
 ## iSeeRNA: identify long intergenic non-coding RNA transcripts from transcriptome sequencing data
 **Authors**: Kun Sun, Huating Wang, and Hao Sun
+
 **Version**: 1.2.2, Apr 2013
+
 **Software written by**: Kun Sun
 
 Distributed under the Boost Software License; for more information please read the license files in `LICENSE` directory.
